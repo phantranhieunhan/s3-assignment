@@ -10,16 +10,16 @@ import (
 	"github.com/phantranhieunhan/s3-assignment/module/friendship/port/constant"
 )
 
-type ConnectFriendshipReq struct {
+type ListCommonFriendsReq struct {
 	Friends []string `json:"friends"`
 }
 
-func (c ConnectFriendshipReq) validate() error {
-	if len(c.Friends) != 2 {
+func (l ListCommonFriendsReq) validate() error {
+	if len(l.Friends) != 2 {
 		return common.ErrInvalidRequest(fmt.Errorf("friends must be of length 2"), constant.FRIENDS)
 	}
 
-	for i, friend := range c.Friends {
+	for i, friend := range l.Friends {
 		if err := common.ValidateRequired(friend, fmt.Sprintf("friend %d", i)); err != nil {
 			return err
 		}
@@ -27,24 +27,29 @@ func (c ConnectFriendshipReq) validate() error {
 	return nil
 }
 
-func (s *Server) ConnectFriendship(c *gin.Context) {
-	var req ConnectFriendshipReq
+func (s *Server) ListCommonFriends(c *gin.Context) {
+	var req ListCommonFriendsReq
 	var err error
-	if err = c.ShouldBind(&req); err != nil {
-		logger.Error("ConnectFriendship.ShouldBind: ", err)
+	if err = c.ShouldBindJSON(&req); err != nil {
+		logger.Error("ListCommonFriends.ShouldBind: ", err)
 		panic(common.ErrInvalidRequest(err, constant.FRIENDS))
 	}
 
 	if err = req.validate(); err != nil {
-		logger.Error("ConnectFriendship.Validate: ", err)
+		logger.Error("ListCommonFriends.Validate: ", err)
 		panic(err)
 	}
 
-	_, err = s.app.Commands.ConnectFriendship.Handle(c.Request.Context(), req.Friends[0], req.Friends[1])
+	list, err := s.app.Queries.ListCommonFriends.Handle(c.Request.Context(), req.Friends)
 	if err != nil {
-		logger.Error("ConnectFriendship.Handle: ", err)
+		logger.Error("ListFriends.Handle: ", err)
 		panic(err)
 	}
 
-	c.JSON(http.StatusOK, common.SimpleSuccessResponse(nil))
+	c.JSON(http.StatusOK, common.CustomSuccessResponse(
+		map[string]interface{}{
+			"friends": list,
+			"count":   len(list),
+		},
+	))
 }
